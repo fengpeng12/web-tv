@@ -1,0 +1,60 @@
+# generated-by: zaocan-ci variant=release
+name: Android Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      # 有 wrapper 就用 wrapper（尊重工程自带的 Gradle 版本），没有才用 setup-gradle 装的 gradle
+      - name: Build release APK
+        run: |
+          if [ -x ./gradlew ]; then chmod +x ./gradlew; ./gradlew assembleRelease --no-daemon
+          else gradle assembleRelease --no-daemon; fi
+
+      - name: Run unit tests
+        run: |
+          if [ -x ./gradlew ]; then ./gradlew testReleaseUnitTest
+          else gradle testReleaseUnitTest; fi
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: app/build/reports/tests/
+
+      - name: Lint
+        run: |
+          if [ -x ./gradlew ]; then ./gradlew lintRelease
+          else gradle lintRelease; fi
+
+      - name: Upload lint report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-report
+          path: app/build/reports/lint-results-release.*
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: '**/build/outputs/apk/release/*.apk'
+          if-no-files-found: error
