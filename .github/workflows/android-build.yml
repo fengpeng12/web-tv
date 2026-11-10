@@ -53,6 +53,8 @@ jobs:
           "$APKSIGNER" verify --verbose "$OUT_DIR/app-release.apk"
           echo "signed: $OUT_DIR/app-release.apk"
 
+      # 签名后产物统一为 app-release.apk，覆盖升级与本地 Release 构建一致。
+
       - name: Run unit tests
         run: |
           if [ -x ./gradlew ]; then ./gradlew testReleaseUnitTest
