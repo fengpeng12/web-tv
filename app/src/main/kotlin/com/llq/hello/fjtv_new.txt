@@ -1,0 +1,65 @@
+(function(){
+  if (window.__fjtvNative) return 'ok';
+  window.__fjtvNative = true;
+
+  function host(msg){
+    try { if (window.androidHost && window.androidHost.onDebug) window.androidHost.onDebug('fjtvN ' + msg); } catch(e){}
+  }
+
+  // HLS 直播流在 Android WebView 里无法播放（无原生 m3u8 支持），
+  // 这里只负责取出真实流地址，播放交给宿主的原生播放器。
+  function play(url){
+    try {
+      if (window.androidHost && window.androidHost.playUrl){
+        host('play->native ' + url.slice(0, 70));
+        window.androidHost.playUrl(url);
+      } else {
+        host('no bridge');
+      }
+    } catch(e){ host('play fail ' + e.message); }
+  }
+
+  var fired = false;
+
+  // 频道 id 就写在 #m2o_player 里（站点用它去换流地址）
+  function resolveChannelId(){
+    var p = document.getElementById('m2o_player');
+    if (!p) return '';
+    var t = (p.textContent || '').replace(/\s+/g, '');
+    if (/^[0-9]{6,}$/.test(t)) return t;
+    var m = (p.innerHTML || '').match(/[0-9]{9,}/);
+    return m ? m[0] : '';
+  }
+
+  function request(id){
+    var x = new XMLHttpRequest();
+    x.open('GET', '/m2o/channel/channel_info.php?channel_id=' + encodeURIComponent(id), true);
+    x.onreadystatechange = function(){
+      if (x.readyState !== 4) return;
+      if (x.status !== 200){ host('info http ' + x.status); return; }
+      var body = x.responseText || '';
+      var m = body.match(/"m3u8"\s*:\s*"([^"]+)"/);
+      if (!m){ host('no m3u8 field'); return; }
+      var u = m[1].replace(/\\\//g, '/');
+      if (u.indexOf('http') !== 0) u = location.protocol + '//' + location.host + u;
+      if (location.protocol === 'https:' && u.indexOf('http://') === 0) u = u.replace('http://', 'https://');
+      host('m3u8 ' + u.slice(0, 70));
+      play(u);
+    };
+    try { x.send(); } catch(e){ host('xhr fail ' + e.message); }
+  }
+
+  function tick(){
+    if (fired) return;
+    var id = resolveChannelId();
+    if (!id) return;
+    fired = true;
+    host('channel ' + id);
+    request(id);
+  }
+
+  tick();
+  var timer = setInterval(tick, 600);
+  setTimeout(function(){ clearInterval(timer); }, 60000);
+  return 'ok';
+})();

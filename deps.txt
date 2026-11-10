@@ -1,0 +1,17 @@
+# 第三方依赖清单（每行一个 Maven 坐标；以 # 开头的是注释）
+#
+# 本文件是「说明 + 给编辑器侧同步用」：设备内构建（build_app）不做在线依赖解析，
+# 它读取的是媒体目录下已经放好的 jar / aar：
+#
+#     Android/media/<本应用包名>/build-deps/libs/*.jar|*.aar
+#
+# 所以要用第三方库时，得先把 jar/aar（连同它们的传递依赖）放进上面的 libs/ 目录，
+# 再在这里记一行坐标方便自己核对。
+#
+# com.google.android.material:material:1.12.0
+# androidx.constraintlayout:constraintlayout:2.1.4
+androidx.media3:media3-exoplayer:1.4.1
+androidx.media3:media3-exoplayer-hls:1.4.1
+androidx.media3:media3-ui:1.4.1
+androidx.media3:media3-common:1.4.1
+androidx.media3:media3-datasource:1.4.1

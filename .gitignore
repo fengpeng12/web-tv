@@ -1,0 +1,13 @@
+# 掌造首次 push 自动生成：忽略设备实验残留与大文件（可按需修改）
+_*/
+*.apk
+*.aab
+*.log
+.webnex/
+.webnex-snapshots/
+__pycache__/
+repo.git
+.DS_Store
+build/
+local.properties
+.gradle/
