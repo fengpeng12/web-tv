@@ -50,4 +50,5 @@ dependencies {
     implementation("androidx.media3:media3-ui:1.4.1")
     implementation("androidx.media3:media3-common:1.4.1")
     implementation("androidx.media3:media3-datasource:1.4.1")
+    testImplementation("junit:junit:4.13.2")
 }
