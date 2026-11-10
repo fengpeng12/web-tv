@@ -28,6 +28,29 @@ jobs:
           if [ -x ./gradlew ]; then chmod +x ./gradlew; ./gradlew assembleDebug --no-daemon
           else gradle assembleDebug --no-daemon; fi
 
+      # debug 包默认已由 AGP 用 ~/.android/debug.keystore 签名，但为了确保 v2/v3 完整，
+      # 这里用 apksigner 显式重新签名（zipalign 后），保证产物一定能装。
+      - name: Sign debug APK (v2+v3)
+        run: |
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          BT="$SDK_ROOT/build-tools"
+          # 取最高版本 build-tools
+          BT_VER=$(ls -1 "$BT" 2>/dev/null | sort -V | tail -1)
+          ZIPALIGN="$BT/$BT_VER/zipalign"
+          APKSIGNER="$BT/$BT_VER/apksigner"
+          KEYSTORE="$HOME/.android/debug.keystore"
+          [ ! -f "$KEYSTORE" ] && KEYSTORE="$SDK_ROOT/debug.keystore"
+          UNSIGNED=$(find app/build/outputs/apk/debug -name '*.apk' | head -1)
+          ALIGNED="app/build/outputs/apk/debug/app-debug-aligned.apk"
+          SIGNED="app/build/outputs/apk/debug/app-debug-signed.apk"
+          "$ZIPALIGN" -f -p 4 "$UNSIGNED" "$ALIGNED"
+          "$APKSIGNER" sign --ks "$KEYSTORE" --ks-pass pass:android \
+            --key-pass pass:android --out "$SIGNED" "$ALIGNED"
+          "$APKSIGNER" verify --verbose "$SIGNED"
+          # 用签名版覆盖原产物，方便后续步骤按原路径上传
+          cp "$SIGNED" "$UNSIGNED"
+          echo "signed: $SIGNED"
+
       - name: Run unit tests
         run: |
           if [ -x ./gradlew ]; then ./gradlew testDebugUnitTest
