@@ -28,6 +28,31 @@ jobs:
           if [ -x ./gradlew ]; then chmod +x ./gradlew; ./gradlew assembleRelease --no-daemon
           else gradle assembleRelease --no-daemon; fi
 
+      # 用仓库内固定 keystore 签名，保证每次构建签名一致（可覆盖升级）。
+      - name: Sign release APK (v2+v3)
+        run: |
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          BT="$SDK_ROOT/build-tools"
+          BT_VER=$(ls -1 "$BT" | sort -V | tail -1)
+          ZIPALIGN="$BT/$BT_VER/zipalign"
+          APKSIGNER="$BT/$BT_VER/apksigner"
+          KEYSTORE="keystore/release-debug.jks"
+          STOREPASS="webnex123"
+          KEYPASS="webnex123"
+          ALIAS="webnex"
+          OUT_DIR="app/build/outputs/apk/release"
+          SRC=$(find "$OUT_DIR" -name '*.apk' ! -name '*-unsigned.apk' | head -1)
+          [ -z "$SRC" ] && SRC=$(find "$OUT_DIR" -name '*.apk' | head -1)
+          ALIGNED="$OUT_DIR/.tmp-aligned.apk"
+          FINAL="$OUT_DIR/.tmp-signed.apk"
+          "$ZIPALIGN" -f -p 4 "$SRC" "$ALIGNED"
+          "$APKSIGNER" sign --ks "$KEYSTORE" --ks-pass "pass:$STOREPASS" \
+            --ks-key-alias "$ALIAS" --key-pass "pass:$KEYPASS" --out "$FINAL" "$ALIGNED"
+          rm -f "$ALIGNED" "$SRC"
+          mv "$FINAL" "$OUT_DIR/app-release.apk"
+          "$APKSIGNER" verify --verbose "$OUT_DIR/app-release.apk"
+          echo "signed: $OUT_DIR/app-release.apk"
+
       - name: Run unit tests
         run: |
           if [ -x ./gradlew ]; then ./gradlew testReleaseUnitTest
