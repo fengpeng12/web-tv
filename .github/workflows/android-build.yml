@@ -1,4 +1,4 @@
-# generated-by: zaocan-ci variant=debug
+# generated-by: zaocan-ci variant=release
 name: Android Build
 
 on:
@@ -23,40 +23,15 @@ jobs:
           gradle-version: '8.7'
 
       # 有 wrapper 就用 wrapper（尊重工程自带的 Gradle 版本），没有才用 setup-gradle 装的 gradle
-      - name: Build debug APK
+      - name: Build release APK
         run: |
-          if [ -x ./gradlew ]; then chmod +x ./gradlew; ./gradlew assembleDebug --no-daemon
-          else gradle assembleDebug --no-daemon; fi
-
-      # 用仓库内固定 keystore 签名，保证每次构建签名一致（可覆盖升级、可上架测试分发）。
-      - name: Sign debug APK (v2+v3)
-        run: |
-          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
-          BT="$SDK_ROOT/build-tools"
-          BT_VER=$(ls -1 "$BT" | sort -V | tail -1)
-          ZIPALIGN="$BT/$BT_VER/zipalign"
-          APKSIGNER="$BT/$BT_VER/apksigner"
-          KEYSTORE="keystore/release-debug.jks"
-          STOREPASS="webnex123"
-          KEYPASS="webnex123"
-          ALIAS="webnex"
-          OUT_DIR="app/build/outputs/apk/debug"
-          SRC=$(find "$OUT_DIR" -name 'app-debug.apk' | head -1)
-          [ -z "$SRC" ] && SRC=$(find "$OUT_DIR" -name '*.apk' | head -1)
-          ALIGNED="$OUT_DIR/.tmp-aligned.apk"
-          FINAL="$OUT_DIR/.tmp-signed.apk"
-          "$ZIPALIGN" -f -p 4 "$SRC" "$ALIGNED"
-          "$APKSIGNER" sign --ks "$KEYSTORE" --ks-pass "pass:$STOREPASS" \
-            --ks-key-alias "$ALIAS" --key-pass "pass:$KEYPASS" --out "$FINAL" "$ALIGNED"
-          rm -f "$ALIGNED" "$SRC"
-          mv "$FINAL" "$OUT_DIR/app-debug.apk"
-          "$APKSIGNER" verify --verbose "$OUT_DIR/app-debug.apk"
-          echo "signed: $OUT_DIR/app-debug.apk"
+          if [ -x ./gradlew ]; then chmod +x ./gradlew; ./gradlew assembleRelease --no-daemon
+          else gradle assembleRelease --no-daemon; fi
 
       - name: Run unit tests
         run: |
-          if [ -x ./gradlew ]; then ./gradlew testDebugUnitTest
-          else gradle testDebugUnitTest; fi
+          if [ -x ./gradlew ]; then ./gradlew testReleaseUnitTest
+          else gradle testReleaseUnitTest; fi
 
       - name: Upload test report
         if: always()
@@ -67,19 +42,19 @@ jobs:
 
       - name: Lint
         run: |
-          if [ -x ./gradlew ]; then ./gradlew lintDebug
-          else gradle lintDebug; fi
+          if [ -x ./gradlew ]; then ./gradlew lintRelease
+          else gradle lintRelease; fi
 
       - name: Upload lint report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: lint-report
-          path: app/build/reports/lint-results-debug.*
+          path: app/build/reports/lint-results-release.*
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: apk
-          path: '**/build/outputs/apk/debug/*.apk'
+          path: '**/build/outputs/apk/release/*.apk'
           if-no-files-found: error
