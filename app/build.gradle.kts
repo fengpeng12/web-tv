@@ -39,7 +39,7 @@ android {
 dependencies {
     // 引擎会把依赖池（build-deps/libs）里的 aar/jar 全部进 classpath；
     // 这里声明坐标：一是给真 Gradle 用，二是让工程自解释需要哪些库。
-    implementation("org.jetbrains.kotlin:kotlin-stdlib:2.4.0")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.24")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.fragment:fragment:1.6.2")
