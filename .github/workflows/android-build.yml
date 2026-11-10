@@ -28,28 +28,36 @@ jobs:
           if [ -x ./gradlew ]; then chmod +x ./gradlew; ./gradlew assembleDebug --no-daemon
           else gradle assembleDebug --no-daemon; fi
 
-      # debug 包默认已由 AGP 用 ~/.android/debug.keystore 签名，但为了确保 v2/v3 完整，
-      # 这里用 apksigner 显式重新签名（zipalign 后），保证产物一定能装。
+      # debug 包默认应由 AGP 自动签名，但云端 runner 上 assembleDebug 常产出未签名 APK
+      # （debug.keystore 未生成）。这里兜底：现场生成 debug keystore，zipalign + apksigner 重签，
+      # 保证产物一定带 v2+v3 签名、可直接安装。
       - name: Sign debug APK (v2+v3)
         run: |
           SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
           BT="$SDK_ROOT/build-tools"
-          # 取最高版本 build-tools
-          BT_VER=$(ls -1 "$BT" 2>/dev/null | sort -V | tail -1)
+          BT_VER=$(ls -1 "$BT" | sort -V | tail -1)
           ZIPALIGN="$BT/$BT_VER/zipalign"
           APKSIGNER="$BT/$BT_VER/apksigner"
           KEYSTORE="$HOME/.android/debug.keystore"
-          [ ! -f "$KEYSTORE" ] && KEYSTORE="$SDK_ROOT/debug.keystore"
-          UNSIGNED=$(find app/build/outputs/apk/debug -name '*.apk' | head -1)
-          ALIGNED="app/build/outputs/apk/debug/app-debug-aligned.apk"
-          SIGNED="app/build/outputs/apk/debug/app-debug-signed.apk"
-          "$ZIPALIGN" -f -p 4 "$UNSIGNED" "$ALIGNED"
+          mkdir -p "$HOME/.android"
+          # 幂等生成 debug keystore（别名/口令与 Android 官方 debug 一致）
+          if [ ! -f "$KEYSTORE" ]; then
+            keytool -genkeypair -keystore "$KEYSTORE" -storepass android \
+              -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 \
+              -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
+          OUT_DIR="app/build/outputs/apk/debug"
+          SRC=$(find "$OUT_DIR" -name 'app-debug.apk' | head -1)
+          [ -z "$SRC" ] && SRC=$(find "$OUT_DIR" -name '*.apk' | head -1)
+          ALIGNED="$OUT_DIR/.tmp-aligned.apk"
+          FINAL="$OUT_DIR/.tmp-signed.apk"
+          "$ZIPALIGN" -f -p 4 "$SRC" "$ALIGNED"
           "$APKSIGNER" sign --ks "$KEYSTORE" --ks-pass pass:android \
-            --key-pass pass:android --out "$SIGNED" "$ALIGNED"
-          "$APKSIGNER" verify --verbose "$SIGNED"
-          # 用签名版覆盖原产物，方便后续步骤按原路径上传
-          cp "$SIGNED" "$UNSIGNED"
-          echo "signed: $SIGNED"
+            --key-pass pass:android --out "$FINAL" "$ALIGNED"
+          rm -f "$ALIGNED" "$SRC"
+          mv "$FINAL" "$OUT_DIR/app-debug.apk"
+          "$APKSIGNER" verify --verbose "$OUT_DIR/app-debug.apk"
+          echo "signed: $OUT_DIR/app-debug.apk"
 
       - name: Run unit tests
         run: |
